@@ -1,0 +1,4 @@
+com\microservices\pro\product\ProductService.class
+com\microservices\pro\product\Product.class
+com\microservices\pro\product\ProductController.class
+com\microservices\pro\product\ProductApplication.class
