@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: payment-service
+  config:
+    import: "optional:configserver:http://localhost:8888"
+
+server:
+  port: 8083
+
+payment:
+  failure-rate: 50 # percentage chance (0-100) of a simulated payment failure
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

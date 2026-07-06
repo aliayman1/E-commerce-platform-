@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: order-service
+  config:
+    import: "optional:configserver:http://localhost:8888"
+
+server:
+  port: 8082
+
+payment-service:
+  url: http://localhost:8083
+
+resilience4j:
+  circuitbreaker:
+    circuit-breaker-aspect-order: 1
+    instances:
+      paymentService:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10 # track last 10 calls
+        failure-rate-threshold: 50 # open if 50%+ fail
+        wait-duration-in-open-state: 5s # wait 5s before HALF-OPEN
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true # expose via Actuator
+  retry:
+    retry-aspect-order: 2
+    instances:
+      paymentService:
+        max-attempts: 3 # try 3 times total
+        wait-duration: 500ms # wait 500ms between attempts
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2 # 500ms -> 1s -> 2s
+        retry-exceptions:
+          - java.lang.RuntimeException # only retry on these
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException # never retry on these
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  health:
+    circuitbreakers:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,circuitbreakers
