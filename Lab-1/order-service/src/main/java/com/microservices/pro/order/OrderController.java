@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.concurrent.CompletableFuture;
+
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
@@ -17,7 +19,11 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(@RequestBody OrderRequest request) {
-        return ResponseEntity.ok(orderService.createOrder(request));
+    public CompletableFuture<ResponseEntity<OrderResponse>> createOrder(@RequestBody OrderRequest request) {
+        return orderService.createOrderAsync(request)
+                .thenApply(response -> ResponseEntity.ok(response));
     }
+
+    // Spring MVC handles CompletableFuture transparently
+    // Client sees a normal synchronous HTTP response — async is internal only
 }

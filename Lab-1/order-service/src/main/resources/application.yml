@@ -11,6 +11,17 @@ payment-service:
   url: http://localhost:8083
 
 resilience4j:
+  bulkhead:
+    instances:
+      paymentService:
+        max-concurrent-calls: 10 # max 10 simultaneous calls to Payment
+        max-wait-duration: 0ms # do NOT wait, do NOT queue — fail immediately if full
+        # max-wait-duration: 500ms # alternative: wait up to 500ms for a slot
+  timelimiter:
+    instances:
+      paymentService:
+        timeout-duration: 2s # fail if Payment takes > 2 seconds
+        cancel-running-future: true # cancel the thread on timeout
   circuitbreaker:
     circuit-breaker-aspect-order: 1
     instances:
@@ -46,7 +57,9 @@ management:
   health:
     circuitbreakers:
       enabled: true
+    bulkheads:
+      enabled: true
   endpoints:
     web:
       exposure:
-        include: health,info,circuitbreakers
+        include: health,info,circuitbreakers,bulkheads

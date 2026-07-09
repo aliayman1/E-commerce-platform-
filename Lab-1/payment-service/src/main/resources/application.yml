@@ -9,6 +9,7 @@ server:
 
 payment:
   failure-rate: 50 # percentage chance (0-100) of a simulated payment failure
+  delay-ms: 0 # set to 3000 (3s) to trigger the 2s TimeLimiter on Order Service.
 
 eureka:
   client:

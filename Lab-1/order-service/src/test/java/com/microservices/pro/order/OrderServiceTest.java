@@ -9,6 +9,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
 import java.math.BigDecimal;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,7 +30,11 @@ import static org.mockito.Mockito.when;
         "resilience4j.circuitbreaker.instances.paymentService.wait-duration-in-open-state=1s",
         "resilience4j.retry.instances.paymentService.max-attempts=2",
         "resilience4j.retry.instances.paymentService.wait-duration=50ms",
-        "resilience4j.retry.instances.paymentService.enable-exponential-backoff=false"
+        "resilience4j.retry.instances.paymentService.enable-exponential-backoff=false",
+        "resilience4j.bulkhead.instances.paymentService.max-concurrent-calls=1",
+        "resilience4j.bulkhead.instances.paymentService.max-wait-duration=0",
+        "resilience4j.timelimiter.instances.paymentService.timeout-duration=2s",
+        "resilience4j.timelimiter.instances.paymentService.cancel-running-future=true"
 })
 class OrderServiceTest {
 
@@ -46,38 +53,82 @@ class OrderServiceTest {
     }
 
     @Test
-    void createOrder_returnsConfirmed_whenPaymentSucceeds() {
+    void createOrder_returnsConfirmed_whenPaymentSucceeds() throws Exception {
         when(paymentClient.processPayment(any()))
                 .thenReturn(new PaymentResponse("APPROVED", "txn-1", BigDecimal.TEN));
 
-        OrderResponse response = orderService.createOrder(new OrderRequest(BigDecimal.TEN));
+        OrderResponse response = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN))
+                .get(2, TimeUnit.SECONDS);
 
         assertEquals("CONFIRMED", response.status());
     }
 
     @Test
-    void createOrder_returnsPending_whenPaymentFailsConsistently() {
+    void createOrder_returnsPending_whenPaymentFailsConsistently() throws Exception {
         when(paymentClient.processPayment(any()))
                 .thenThrow(new RuntimeException("Payment Service unavailable"));
 
-        OrderResponse response = orderService.createOrder(new OrderRequest(BigDecimal.TEN));
+        OrderResponse response = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN))
+                .get(2, TimeUnit.SECONDS);
 
         assertEquals("PENDING", response.status());
         verify(paymentClient, times(2)).processPayment(any()); // max-attempts=2
     }
 
     @Test
-    void circuitBreaker_opensAfterFailureThreshold() {
+    void circuitBreaker_opensAfterFailureThreshold() throws Exception {
         when(paymentClient.processPayment(any()))
                 .thenThrow(new RuntimeException("Payment Service unavailable"));
 
-        // CircuitBreaker wraps Retry, so it records ONE outcome per createOrder() call
+        // CircuitBreaker wraps Retry, so it records ONE outcome per createOrderAsync() call
         // (after Retry exhausts its attempts) - 4 failed calls fills the sliding window.
         for (int i = 0; i < 4; i++) {
-            orderService.createOrder(new OrderRequest(BigDecimal.TEN));
+            orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN)).get(2, TimeUnit.SECONDS);
         }
 
         assertEquals(CircuitBreaker.State.OPEN,
                 circuitBreakerRegistry.circuitBreaker("paymentService").getState());
+    }
+
+    @Test
+    void bulkhead_returnsQueued_whenConcurrentLimitExceeded() throws Exception {
+        CountDownLatch releaseLatch = new CountDownLatch(1);
+        when(paymentClient.processPayment(any())).thenAnswer(invocation -> {
+            releaseLatch.await(3, TimeUnit.SECONDS);
+            return new PaymentResponse("APPROVED", "txn-2", BigDecimal.TEN);
+        });
+
+        // First call occupies the only bulkhead slot (max-concurrent-calls=1)
+        CompletableFuture<OrderResponse> first = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN));
+        Thread.sleep(200); // let the first call acquire the bulkhead permit
+
+        OrderResponse second = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN))
+                .get(2, TimeUnit.SECONDS);
+        assertEquals("QUEUED", second.status());
+
+        releaseLatch.countDown();
+        OrderResponse firstResult = first.get(2, TimeUnit.SECONDS);
+        assertEquals("CONFIRMED", firstResult.status());
+    }
+
+    @Test
+    void timeLimiter_returnsPending_whenPaymentExceedsTimeout() throws Exception {
+        // A background thread (not the TimeLimiter's cancelled future) still holds the Bulkhead
+        // permit until this mocked call actually returns, so release it via a latch instead of a
+        // fixed sleep - otherwise the permit would leak into the next test.
+        CountDownLatch releaseLatch = new CountDownLatch(1);
+        when(paymentClient.processPayment(any())).thenAnswer(invocation -> {
+            releaseLatch.await(5, TimeUnit.SECONDS); // slower than the 2s TimeLimiter
+            return new PaymentResponse("APPROVED", "txn-3", BigDecimal.TEN);
+        });
+
+        OrderResponse response = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN))
+                .get(4, TimeUnit.SECONDS);
+
+        assertEquals("PENDING", response.status());
+        assertEquals("Payment timed out", response.message());
+
+        releaseLatch.countDown();
+        Thread.sleep(100); // let the background call finish and release the Bulkhead permit
     }
 }
