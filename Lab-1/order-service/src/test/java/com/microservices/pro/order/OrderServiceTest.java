@@ -15,6 +15,9 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -47,9 +50,15 @@ class OrderServiceTest {
     @MockBean
     private PaymentClient paymentClient;
 
+    @MockBean
+    private InventoryClient inventoryClient;
+
     @BeforeEach
     void resetCircuitBreaker() {
         circuitBreakerRegistry.circuitBreaker("paymentService").reset();
+        // Default: stock is available unless a test overrides this stub
+        when(inventoryClient.checkStock(anyString(), anyInt()))
+                .thenReturn(new StockCheckResponse("PROD-001", 1, true, 99));
     }
 
     @Test
@@ -57,10 +66,35 @@ class OrderServiceTest {
         when(paymentClient.processPayment(any()))
                 .thenReturn(new PaymentResponse("APPROVED", "txn-1", BigDecimal.TEN));
 
-        OrderResponse response = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN))
+        OrderResponse response = orderService.createOrderAsync(new OrderRequest("PROD-001", 1, BigDecimal.TEN))
                 .get(2, TimeUnit.SECONDS);
 
         assertEquals("CONFIRMED", response.status());
+    }
+
+    @Test
+    void createOrder_returnsRejected_whenInventoryReportsInsufficientStock() throws Exception {
+        when(inventoryClient.checkStock("PROD-003", 1))
+                .thenThrow(new InsufficientStockException("Product out of stock"));
+
+        OrderResponse response = orderService.createOrderAsync(new OrderRequest("PROD-003", 1, BigDecimal.TEN))
+                .get(2, TimeUnit.SECONDS);
+
+        assertEquals("REJECTED", response.status());
+        assertEquals("Product out of stock", response.message());
+        verify(paymentClient, never()).processPayment(any());
+    }
+
+    @Test
+    void createOrder_checksInventoryBeforeCallingPayment() throws Exception {
+        when(paymentClient.processPayment(any()))
+                .thenReturn(new PaymentResponse("APPROVED", "txn-4", BigDecimal.TEN));
+
+        orderService.createOrderAsync(new OrderRequest("PROD-001", 2, BigDecimal.TEN))
+                .get(2, TimeUnit.SECONDS);
+
+        verify(inventoryClient, times(1)).checkStock("PROD-001", 2);
+        verify(paymentClient, times(1)).processPayment(any());
     }
 
     @Test
@@ -68,7 +102,7 @@ class OrderServiceTest {
         when(paymentClient.processPayment(any()))
                 .thenThrow(new RuntimeException("Payment Service unavailable"));
 
-        OrderResponse response = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN))
+        OrderResponse response = orderService.createOrderAsync(new OrderRequest("PROD-001", 1, BigDecimal.TEN))
                 .get(2, TimeUnit.SECONDS);
 
         assertEquals("PENDING", response.status());
@@ -83,7 +117,7 @@ class OrderServiceTest {
         // CircuitBreaker wraps Retry, so it records ONE outcome per createOrderAsync() call
         // (after Retry exhausts its attempts) - 4 failed calls fills the sliding window.
         for (int i = 0; i < 4; i++) {
-            orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN)).get(2, TimeUnit.SECONDS);
+            orderService.createOrderAsync(new OrderRequest("PROD-001", 1, BigDecimal.TEN)).get(2, TimeUnit.SECONDS);
         }
 
         assertEquals(CircuitBreaker.State.OPEN,
@@ -99,10 +133,10 @@ class OrderServiceTest {
         });
 
         // First call occupies the only bulkhead slot (max-concurrent-calls=1)
-        CompletableFuture<OrderResponse> first = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN));
+        CompletableFuture<OrderResponse> first = orderService.createOrderAsync(new OrderRequest("PROD-001", 1, BigDecimal.TEN));
         Thread.sleep(200); // let the first call acquire the bulkhead permit
 
-        OrderResponse second = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN))
+        OrderResponse second = orderService.createOrderAsync(new OrderRequest("PROD-001", 1, BigDecimal.TEN))
                 .get(2, TimeUnit.SECONDS);
         assertEquals("QUEUED", second.status());
 
@@ -122,7 +156,7 @@ class OrderServiceTest {
             return new PaymentResponse("APPROVED", "txn-3", BigDecimal.TEN);
         });
 
-        OrderResponse response = orderService.createOrderAsync(new OrderRequest(BigDecimal.TEN))
+        OrderResponse response = orderService.createOrderAsync(new OrderRequest("PROD-001", 1, BigDecimal.TEN))
                 .get(4, TimeUnit.SECONDS);
 
         assertEquals("PENDING", response.status());

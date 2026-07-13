@@ -8,6 +8,8 @@ import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -18,9 +20,11 @@ public class OrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final PaymentClient paymentClient;
+    private final InventoryClient inventoryClient;
 
-    public OrderService(PaymentClient paymentClient) {
+    public OrderService(PaymentClient paymentClient, InventoryClient inventoryClient) {
         this.paymentClient = paymentClient;
+        this.inventoryClient = inventoryClient;
     }
 
     @Bulkhead(name = "paymentService", fallbackMethod = "bulkheadFallback")
@@ -28,9 +32,26 @@ public class OrderService {
     @CircuitBreaker(name = "paymentService", fallbackMethod = "paymentFallback")
     @Retry(name = "paymentService") // Retry wraps INSIDE CircuitBreaker
     public CompletableFuture<OrderResponse> createOrderAsync(OrderRequest request) {
+        // CompletableFuture.supplyAsync() runs on a different thread than the incoming request,
+        // so Spring's ThreadLocal-based RequestContextHolder (which FeignJwtInterceptor reads)
+        // must be carried over explicitly or the JWT never reaches downstream Feign calls.
+        RequestAttributes callerAttributes = RequestContextHolder.getRequestAttributes();
         return CompletableFuture.supplyAsync(() -> {
-            PaymentResponse payment = paymentClient.processPayment(new PaymentRequest(request.amount()));
-            return new OrderResponse("CONFIRMED", payment.transactionId());
+            RequestContextHolder.setRequestAttributes(callerAttributes);
+            try {
+                // Step 1: Check inventory BEFORE payment
+                try {
+                    inventoryClient.checkStock(request.productId(), request.quantity());
+                } catch (InsufficientStockException ex) {
+                    return new OrderResponse("REJECTED", ex.getMessage());
+                }
+
+                // Step 2: Process payment (only if stock is OK)
+                PaymentResponse payment = paymentClient.processPayment(new PaymentRequest(request.amount()));
+                return new OrderResponse("CONFIRMED", payment.transactionId());
+            } finally {
+                RequestContextHolder.resetRequestAttributes();
+            }
         });
     }
 
