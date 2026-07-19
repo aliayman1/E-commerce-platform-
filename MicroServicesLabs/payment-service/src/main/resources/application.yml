@@ -1,6 +1,6 @@
 spring:
   application:
-    name: inventory-service
+    name: payment-service
   config:
     import: "optional:configserver:http://localhost:8888"
   kafka:
@@ -15,10 +15,14 @@ spring:
       auto-offset-reset: earliest
     properties:
       spring.json.trusted.packages: "com.microservices.pro.*"
-      spring.json.type.mapping: "orderPlaced:com.microservices.pro.inventory.events.OrderPlacedEvent,inventoryReserved:com.microservices.pro.inventory.events.InventoryReservedEvent,inventoryReservationFailed:com.microservices.pro.inventory.events.InventoryReservationFailedEvent,paymentCompleted:com.microservices.pro.inventory.events.PaymentCompletedEvent,paymentFailed:com.microservices.pro.inventory.events.PaymentFailedEvent,inventoryReleased:com.microservices.pro.inventory.events.InventoryReleasedEvent,orderConfirmed:com.microservices.pro.inventory.events.OrderConfirmedEvent,orderCancelled:com.microservices.pro.inventory.events.OrderCancelledEvent"
+      spring.json.type.mapping: "orderPlaced:com.microservices.pro.payment.events.OrderPlacedEvent,inventoryReserved:com.microservices.pro.payment.events.InventoryReservedEvent,inventoryReservationFailed:com.microservices.pro.payment.events.InventoryReservationFailedEvent,paymentCompleted:com.microservices.pro.payment.events.PaymentCompletedEvent,paymentFailed:com.microservices.pro.payment.events.PaymentFailedEvent,inventoryReleased:com.microservices.pro.payment.events.InventoryReleasedEvent,orderConfirmed:com.microservices.pro.payment.events.OrderConfirmedEvent,orderCancelled:com.microservices.pro.payment.events.OrderCancelledEvent"
 
 server:
-  port: 8084
+  port: 8083
+
+payment:
+  failure-rate: 50 # percentage chance (0-100) of a simulated payment failure
+  delay-ms: 0 # set to 3000 (3s) to trigger the 2s TimeLimiter on Order Service.
 
 eureka:
   client:

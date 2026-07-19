@@ -1,6 +1,6 @@
 spring:
   application:
-    name: inventory-service
+    name: order-service
   config:
     import: "optional:configserver:http://localhost:8888"
   kafka:
@@ -15,10 +15,10 @@ spring:
       auto-offset-reset: earliest
     properties:
       spring.json.trusted.packages: "com.microservices.pro.*"
-      spring.json.type.mapping: "orderPlaced:com.microservices.pro.inventory.events.OrderPlacedEvent,inventoryReserved:com.microservices.pro.inventory.events.InventoryReservedEvent,inventoryReservationFailed:com.microservices.pro.inventory.events.InventoryReservationFailedEvent,paymentCompleted:com.microservices.pro.inventory.events.PaymentCompletedEvent,paymentFailed:com.microservices.pro.inventory.events.PaymentFailedEvent,inventoryReleased:com.microservices.pro.inventory.events.InventoryReleasedEvent,orderConfirmed:com.microservices.pro.inventory.events.OrderConfirmedEvent,orderCancelled:com.microservices.pro.inventory.events.OrderCancelledEvent"
+      spring.json.type.mapping: "orderPlaced:com.microservices.pro.order.events.OrderPlacedEvent,inventoryReserved:com.microservices.pro.order.events.InventoryReservedEvent,inventoryReservationFailed:com.microservices.pro.order.events.InventoryReservationFailedEvent,paymentCompleted:com.microservices.pro.order.events.PaymentCompletedEvent,paymentFailed:com.microservices.pro.order.events.PaymentFailedEvent,inventoryReleased:com.microservices.pro.order.events.InventoryReleasedEvent,orderConfirmed:com.microservices.pro.order.events.OrderConfirmedEvent,orderCancelled:com.microservices.pro.order.events.OrderCancelledEvent"
 
 server:
-  port: 8084
+  port: 8082
 
 eureka:
   client:
