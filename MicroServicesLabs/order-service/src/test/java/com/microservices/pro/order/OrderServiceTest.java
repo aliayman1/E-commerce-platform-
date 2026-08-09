@@ -26,13 +26,16 @@ class OrderServiceTest {
     @Mock
     private KafkaTemplate<String, Object> kafkaTemplate;
 
+    @Mock
+    private PaymentClient paymentClient;
+
     private final OrderRepository orderRepository = new OrderRepository();
     private OrderService orderService;
     private OrderSagaEventHandler sagaEventHandler;
 
     @BeforeEach
     void setUp() {
-        orderService = new OrderService(kafkaTemplate, orderRepository);
+        orderService = new OrderService(kafkaTemplate, orderRepository, paymentClient);
         sagaEventHandler = new OrderSagaEventHandler(orderRepository);
     }
 

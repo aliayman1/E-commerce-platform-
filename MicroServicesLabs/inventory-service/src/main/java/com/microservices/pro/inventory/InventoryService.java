@@ -28,6 +28,11 @@ public class InventoryService {
                 available, item.availableQuantity() - item.reservedQuantity());
     }
 
+    public synchronized void resetStock(String productId, int availableQuantity, int reservedQuantity) {
+        stock.put(productId, new StockItem(productId, availableQuantity, reservedQuantity));
+        reservations.entrySet().removeIf(entry -> entry.getValue().productId().equals(productId));
+    }
+
     // Saga step: reserve stock for an order (local transaction)
     public synchronized void reserveStock(String productId, int quantity, String orderId) {
         StockItem item = stock.getOrDefault(productId, new StockItem(productId, 0, 0));

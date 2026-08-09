@@ -2,58 +2,51 @@ package com.microservices.pro.product;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
+    @Mock
+    private ProductRepository productRepository;
+
     @InjectMocks
     private ProductService productService;
 
-    @Test
-    void findAll_returnsEmptyList_whenNoProductsExist() {
-        List<Product> result = productService.findAll();
-        assertTrue(result.isEmpty());
+    @ParameterizedTest
+    @CsvSource({
+            "SILVER,   5",
+            "GOLD,    10",
+            "PLATINUM,15"
+    })
+    void calcDiscount(String tier, int expected) {
+        assertEquals(expected, productService.calcDiscount(tier));
     }
 
     @Test
-    void save_storesProduct_andFindById_retrievesIt() {
-        Product product = new Product(null, "Laptop", "Gaming laptop", BigDecimal.valueOf(999.99), "Electronics");
-        Product saved = productService.save(product);
+    void createProduct_savesProductWithCorrectFields() {
+        // Given
+        ArgumentCaptor<Product> productCaptor = ArgumentCaptor.forClass(Product.class);
 
-        assertNotNull(saved.id());
-        Optional<Product> found = productService.findById(saved.id());
-        assertTrue(found.isPresent());
-        assertEquals("Laptop", found.get().name());
-    }
+        // When
+        productService.save(new Product(null, "Laptop", "Gaming laptop", new BigDecimal("999.99"), "Electronics"));
 
-    @Test
-    void findById_returnsEmpty_forNonExistentId() {
-        Optional<Product> result = productService.findById(999L);
-        assertTrue(result.isEmpty());
-    }
-
-    @Test
-    void deleteById_removesProduct() {
-        Product saved = productService.save(new Product(null, "Phone", "Smartphone", BigDecimal.valueOf(599.99), "Electronics"));
-
-        productService.deleteById(saved.id());
-
-        assertTrue(productService.findById(saved.id()).isEmpty());
-    }
-
-    @Test
-    void findAll_returnsAllSavedProducts() {
-        productService.save(new Product(null, "Laptop", "Gaming laptop", BigDecimal.valueOf(999.99), "Electronics"));
-        productService.save(new Product(null, "Phone", "Smartphone", BigDecimal.valueOf(599.99), "Electronics"));
-
-        assertEquals(2, productService.findAll().size());
+        // Then: verify the EXACT object saved to repository
+        verify(productRepository).save(productCaptor.capture());
+        Product saved = productCaptor.getValue();
+        assertEquals("Laptop", saved.getName());
+        assertEquals("Gaming laptop", saved.getDescription());
+        assertEquals(new BigDecimal("999.99"), saved.getPrice());
+        assertEquals("Electronics", saved.getCategory());
     }
 }

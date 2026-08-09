@@ -3,6 +3,13 @@ spring:
     name: product-service
   config:
     import: "optional:configserver:http://localhost:8888"
+  datasource:
+    url: jdbc:postgresql://localhost:5432/productdb
+    username: product
+    password: product
+  jpa:
+    hibernate:
+      ddl-auto: update
 
 eureka:
   client:
