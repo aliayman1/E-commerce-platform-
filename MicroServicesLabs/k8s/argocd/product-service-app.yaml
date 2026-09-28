@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: product-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/AhmeddKamar/microservices-course-labs
+    targetRevision: main
+    path: k8s/product-service
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce
+  syncPolicy:
+    # DEV ONLY. Production removes the automated block and syncs on approval.
+    automated:
+      prune: true # delete resources removed from Git
+      selfHeal: true # revert manual kubectl changes - this is the drift correction
+    syncOptions:
+      - CreateNamespace=true

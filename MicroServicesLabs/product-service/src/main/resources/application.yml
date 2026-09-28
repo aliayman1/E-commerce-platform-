@@ -22,4 +22,23 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  endpoint:
+    health:
+      # Spring Boot only auto-exposes the liveness/readiness groups below when
+      # it detects a real Kubernetes env (KUBERNETES_SERVICE_HOST). Set this
+      # explicitly so the probes also work outside a cluster (docker-compose,
+      # local run) and don't silently 404 if that detection ever misfires.
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  tracing:
+    sampling:
+      probability: 1.0 # DEV ONLY - trace 100% of requests, see Session 17 sampling guidance
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans # docker-compose overrides to http://zipkin:9411/...

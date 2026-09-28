@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-config
+  namespace: {{ .Values.namespace }}
+data:
+  SPRING_DATASOURCE_URL: {{ .Values.configMap.datasourceUrl }}
+  SPRING_DATASOURCE_USERNAME: {{ .Values.configMap.datasourceUsername }}
+  SPRING_DATA_REDIS_HOST: {{ .Values.configMap.redisHost }}
+  SPRING_DATA_REDIS_PORT: {{ .Values.configMap.redisPort | quote }}
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: {{ .Values.configMap.eurekaUrl }}

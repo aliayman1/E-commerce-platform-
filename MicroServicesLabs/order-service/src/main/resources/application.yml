@@ -3,6 +3,12 @@ spring:
     name: order-service
   config:
     import: "optional:configserver:http://localhost:8888"
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8090/realms/ecommerce-platform
+          jwk-set-uri: http://localhost:8090/realms/ecommerce-platform/protocol/openid-connect/certs
   kafka:
     bootstrap-servers: localhost:9092
     producer:
@@ -19,6 +25,11 @@ spring:
 
 payment-service:
   url: http://localhost:8083
+
+keycloak:
+  token-uri: http://localhost:8090/realms/ecommerce-platform/protocol/openid-connect/token
+  client-id: order-service
+  client-secret: ${ORDER_SERVICE_CLIENT_SECRET:}
 
 resilience4j:
   circuitbreaker:

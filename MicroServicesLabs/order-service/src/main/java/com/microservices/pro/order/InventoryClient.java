@@ -6,7 +6,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 @FeignClient(
         name = "INVENTORY-SERVICE", // must match Eureka service name
-        path = "/api/v1/inventory"
+        path = "/api/v1/inventory",
+        configuration = InventoryClientConfig.class
 )
 public interface InventoryClient {
 

@@ -1,5 +1,6 @@
 package com.microservices.pro.product;
 
+import io.micrometer.core.annotation.Timed;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,40 +12,43 @@ import java.util.List;
 @RequestMapping("/api/v1/products")
 public class ProductController {
 
-    private final ProductService productService;
+    private final ProductCommandService commandService;
+    private final ProductQueryService queryService;
 
-    public ProductController(ProductService productService) {
-        this.productService = productService;
+    public ProductController(ProductCommandService commandService, ProductQueryService queryService) {
+        this.commandService = commandService;
+        this.queryService = queryService;
     }
 
     @GetMapping
-    public ResponseEntity<List<Product>> findAll() {
-        return ResponseEntity.ok(productService.findAll());
+    public ResponseEntity<List<ProductSummaryProjection>> findAll() {
+        return ResponseEntity.ok(queryService.findAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Product> findById(@PathVariable Long id) {
-        return productService.findById(id)
+    public ResponseEntity<ProductSummaryProjection> findById(@PathVariable Long id) {
+        return queryService.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Timed(value = "product.create.duration", description = "Time to create a product")
     @PostMapping
     public ResponseEntity<Product> create(@Valid @RequestBody Product product) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(productService.save(product));
+        return ResponseEntity.status(HttpStatus.CREATED).body(commandService.create(product));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Product> update(@PathVariable Long id, @RequestBody Product product) {
-        if (productService.findById(id).isEmpty()) {
+        if (queryService.findById(id).isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(productService.update(id, product));
+        return ResponseEntity.ok(commandService.update(id, product));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        productService.deleteById(id);
+        commandService.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 }

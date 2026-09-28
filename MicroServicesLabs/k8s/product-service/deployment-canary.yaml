@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service-canary
+  namespace: ecommerce
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: product-service, track: canary }
+  template:
+    metadata:
+      labels: { app: product-service, track: canary }
+    spec:
+      containers:
+        - name: product-service
+          # Newer image than the stable Deployment - this is what makes the
+          # split observable rather than two identical versions.
+          image: ghcr.io/ahmeddkamar/microservices-course-labs/product-service:sha-b61683c
+          ports: [{ containerPort: 8081 }]
+          envFrom:
+            - configMapRef:
+                name: product-config
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: product-secrets, key: DB_PASSWORD }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8081 }
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8081 }
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 3
+# Traffic split is by pod count, via the shared Service selector app: product-service.
+# 2 stable + 2 canary = 50/50, not the slides' 80/20 - their concept slide assumes
+# 8 stable pods while their deployment.yaml says replicas: 2. For a true 80/20:
+#   kubectl scale deployment/product-service -n ecommerce --replicas=8
+# Promote: scale canary to the full count, stable to 0. Roll back: delete this file.

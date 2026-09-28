@@ -1,0 +1,38 @@
+image:
+  repository: ghcr.io/ahmeddkamar/microservices-course-labs/product-service
+  tag: main # CI overrides: helm upgrade --set image.tag=sha-abc1234
+  pullPolicy: IfNotPresent
+
+replicaCount: 2 # initial replicas (HPA overrides in practice)
+
+service:
+  type: ClusterIP
+  port: 8081
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+resources:
+  requests: { cpu: 200m, memory: 512Mi }
+  limits: { cpu: 1000m, memory: 768Mi }
+
+serviceAccount:
+  create: true
+  name: product-service-sa
+
+configMap:
+  datasourceUrl: jdbc:postgresql://postgres:5432/productdb
+  datasourceUsername: product
+  redisHost: redis
+  redisPort: "6379"
+  eurekaUrl: http://eureka-server:8761/eureka/
+
+secret:
+  # DEV ONLY: plain value templated into the Secret via b64enc below.
+  # Prod: Sealed Secrets / Vault / AWS Secrets Manager - never a plain values.yaml value.
+  dbPassword: product
+
+namespace: ecommerce

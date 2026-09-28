@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-config
+  namespace: ecommerce
+data:
+  # Keys are Spring's relaxed-binding env var names, not the slides' dotted
+  # names (datasource.url, redis.host). envFrom turns each key into an env var
+  # verbatim, and a dot is not a legal env var name - the deck's ConfigMap
+  # cannot be consumed by a container at all.
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/productdb
+  SPRING_DATASOURCE_USERNAME: product
+  SPRING_DATA_REDIS_HOST: redis
+  SPRING_DATA_REDIS_PORT: "6379"
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+  # Passwords never belong in a ConfigMap - SPRING_DATASOURCE_PASSWORD is set
+  # as a plain env var on the Deployment until Secrets land in Session 15.

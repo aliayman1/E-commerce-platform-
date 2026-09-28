@@ -29,27 +29,31 @@ class ProductControllerTest {
     ObjectMapper objectMapper;
 
     @MockBean
-    ProductService productService;
+    ProductCommandService commandService;
+
+    @MockBean
+    ProductQueryService queryService;
 
     @Test
-    @DisplayName("GET /api/v1/products/{id} returns 200 with product JSON")
+    @DisplayName("GET /api/v1/products/{id} returns 200 with the flattened summary")
     void getProduct_found_returns200() throws Exception {
         // Given
-        var product = new Product(1L, "Laptop", "Gaming laptop", new BigDecimal("999.99"), "Electronics");
-        when(productService.findById(1L)).thenReturn(Optional.of(product));
+        var summary = new ProductSummaryProjection(1L, "Laptop", new BigDecimal("999.99"), "Electronics");
+        when(queryService.findById(1L)).thenReturn(Optional.of(summary));
 
         // When + Then
         mockMvc.perform(get("/api/v1/products/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.name").value("Laptop"))
-                .andExpect(jsonPath("$.price").value(999.99));
+                .andExpect(jsonPath("$.price").value(999.99))
+                .andExpect(jsonPath("$.categoryName").value("Electronics"));
     }
 
     @Test
     @DisplayName("GET /api/v1/products/{id} returns 404 when not found")
     void getProduct_notFound_returns404() throws Exception {
-        when(productService.findById(99L)).thenReturn(Optional.empty());
+        when(queryService.findById(99L)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/v1/products/99"))
                 .andExpect(status().isNotFound());
@@ -60,7 +64,7 @@ class ProductControllerTest {
     void createProduct_returns201() throws Exception {
         var request = new Product(null, "Laptop", "Gaming laptop", new BigDecimal("999.99"), "Electronics");
         var created = new Product(1L, "Laptop", "Gaming laptop", new BigDecimal("999.99"), "Electronics");
-        when(productService.save(any(Product.class))).thenReturn(created);
+        when(commandService.create(any(Product.class))).thenReturn(created);
 
         mockMvc.perform(post("/api/v1/products")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -75,6 +79,19 @@ class ProductControllerTest {
     @DisplayName("POST /api/v1/products with missing name returns 400")
     void createProduct_missingName_returns400() throws Exception {
         var badRequest = new Product(null, null, "Gaming laptop", new BigDecimal("999.99"), "Electronics");
+
+        mockMvc.perform(post("/api/v1/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(badRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/products with non-positive price returns 400")
+    void createProduct_invalidPrice_returns400() throws Exception {
+        var badRequest = new Product(null, "Bad", null, new BigDecimal("-1"), "ELECTRONICS");
+        when(commandService.create(any(Product.class)))
+                .thenThrow(new InvalidProductException("Price must be positive"));
 
         mockMvc.perform(post("/api/v1/products")
                         .contentType(MediaType.APPLICATION_JSON)

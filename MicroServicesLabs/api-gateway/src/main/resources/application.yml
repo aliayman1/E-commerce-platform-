@@ -8,6 +8,12 @@ spring:
     redis:
       host: localhost
       port: 6379
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8090/realms/ecommerce-platform
+          jwk-set-uri: http://localhost:8090/realms/ecommerce-platform/protocol/openid-connect/certs
   cloud:
     gateway:
       routes:
@@ -24,9 +30,10 @@ spring:
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@ipKeyResolver}"
-
-jwt:
-  secret: microservices-pro-course-secret-key-2024-minimum-256-bits
+        - id: order-service
+          uri: lb://ORDER-SERVICE
+          predicates:
+            - Path=/api/orders/**
 
 eureka:
   client:

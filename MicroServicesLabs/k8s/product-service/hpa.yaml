@@ -1,0 +1,18 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: product-service-hpa
+  namespace: ecommerce
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: product-service
+  minReplicas: 2 # always run minimum 2 for availability
+  maxReplicas: 10 # hard cap - prevent runaway scaling costs
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 70 } # scale out when avg CPU >= 70% of requested
+# DEV NOTE: HPA requires Metrics Server running in the cluster.

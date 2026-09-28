@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: notification-service
+  config:
+    import: "optional:configserver:http://localhost:8888"
+  kafka:
+    bootstrap-servers: localhost:9092
+    # Producer config is required even though this service publishes no business
+    # events  @RetryableTopic uses the KafkaTemplate to forward messages to the
+    # -retry-N and .DLT topics, and JsonSerializer keeps the __TypeId__ header.
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: ${spring.application.name}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+    properties:
+      spring.json.trusted.packages: "com.microservices.pro.*"
+      # Every alias that can appear on payment-events / inventory-events must be
+      # mapped an unmapped __TypeId__ fails deserialization before the listener
+      # (and therefore before @RetryableTopic) ever sees the record.
+      spring.json.type.mapping: "paymentCompleted:com.microservices.pro.notification.events.PaymentCompletedEvent,paymentFailed:com.microservices.pro.notification.events.PaymentFailedEvent,inventoryReserved:com.microservices.pro.notification.events.InventoryReservedEvent,inventoryReservationFailed:com.microservices.pro.notification.events.InventoryReservationFailedEvent,inventoryReleased:com.microservices.pro.notification.events.InventoryReleasedEvent"
+
+server:
+  port: 8085
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Spring Boot ships no Kafka health indicator, so the slide's `kafka`
+        # endpoint id and management.health.kafka.enabled bind to nothing.
+        include: health,info
