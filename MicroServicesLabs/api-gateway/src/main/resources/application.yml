@@ -17,7 +17,7 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: product-service
+        - id: product-service-v1
           uri: lb://PRODUCT-SERVICE
           predicates:
             - Path=/api/v1/products/**
@@ -30,6 +30,18 @@ spring:
                 redis-rate-limiter.burstCapacity: 20
                 redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@ipKeyResolver}"
+        - id: product-service-legacy-redirect # remove after ONE deprecation cycle
+          uri: lb://PRODUCT-SERVICE
+          predicates:
+            - Path=/api/products/**
+          filters:
+            - RewritePath=/api/products(?<segment>/?.*), /api/v1/products${segment}
+            - AddResponseHeader=Deprecation, true
+            # Shortcut syntax splits on commas, which would cut the HTTP-date in half
+            - name: AddResponseHeader
+              args:
+                name: Sunset
+                value: "Wed, 01 Oct 2026 00:00:00 GMT"
         - id: order-service
           uri: lb://ORDER-SERVICE
           predicates:

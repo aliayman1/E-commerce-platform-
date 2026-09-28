@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: product-service
+  namespace: ecommerce
+spec:
+  host: product-service
+  subsets:
+    - name: stable
+      labels: {version: stable}
+    - name: canary
+      labels: {version: canary}
+  trafficPolicy:
+    outlierDetection:        # <- mesh-level Circuit Breaker
+      consecutive5xxErrors: 5
+      baseEjectionTime: 30s   # eject unhealthy pod for 30s

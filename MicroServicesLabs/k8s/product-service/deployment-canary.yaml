@@ -9,7 +9,7 @@ spec:
     matchLabels: { app: product-service, track: canary }
   template:
     metadata:
-      labels: { app: product-service, track: canary }
+      labels: { app: product-service, track: canary, version: canary }
     spec:
       containers:
         - name: product-service

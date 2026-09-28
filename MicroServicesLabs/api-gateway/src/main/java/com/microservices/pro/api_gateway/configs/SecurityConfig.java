@@ -18,12 +18,12 @@ public class SecurityConfig {
         return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/api/v1/products/**", "/api/products/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                         .pathMatchers(HttpMethod.POST, "/actuator/info").permitAll()
-                        .pathMatchers(HttpMethod.POST, "/api/v1/products/**").hasRole("ADMIN")
-                        .pathMatchers(HttpMethod.PUT, "/api/v1/products/**").hasRole("ADMIN")
-                        .pathMatchers(HttpMethod.DELETE, "/api/v1/products/**").hasRole("ADMIN")
+                        .pathMatchers(HttpMethod.POST, "/api/v1/products/**", "/api/products/**").hasRole("ADMIN")
+                        .pathMatchers(HttpMethod.PUT, "/api/v1/products/**", "/api/products/**").hasRole("ADMIN")
+                        .pathMatchers(HttpMethod.DELETE, "/api/v1/products/**", "/api/products/**").hasRole("ADMIN")
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))

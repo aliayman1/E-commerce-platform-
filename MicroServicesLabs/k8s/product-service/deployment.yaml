@@ -13,7 +13,7 @@ spec:
     matchLabels: { app: product-service, track: stable }
   template:
     metadata:
-      labels: { app: product-service, track: stable }
+      labels: { app: product-service, track: stable, version: stable }
     spec:
       containers:
         - name: product-service
