@@ -5,7 +5,7 @@ spring:
     config:
       server:
         git:
-          uri: https://github.com/SayedBaladoh/microservice-cours-config-server
+          uri: https://github.com/AhmeddKamar/microservices-config-files
           default-label: main
           clone-on-start: true
 
